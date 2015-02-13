@@ -4,14 +4,18 @@ from adsr import ADSREnvelope
 from config import kSamplingRate
 from generator import Generator
 
+SQUARE_AMPLITUDES = [ (i, 1./float(i), 0) for i in xrange(1,20) if i%2==1]
+SINE_AMPLITUDES = [(1, 1.0, 0.0)]
+SAW_AMPLITUDES = [ (i, (-1)**(i+1) * 1./float(i), 0) for i in xrange(1, 20)]
+TRI_AMPLITUDES = [ (i, 1./(float(i)**2), np.pi/2.) for i in xrange(1,20) if i%2==1]
 
 def pitch_to_frequency(pitch):
    return 440 * 2 ** ((pitch - 69)/12.)
 
 
-class NoteGenerator(Generator):
+class Note(Generator):
    def __new__(cls, pitch, overtones, detune, duration=None, envelope=None):
-      t = ToneGenerator(pitch, overtones, detune)
+      t = Tone(pitch, overtones, detune)
       if envelope == None:
          envelope = ADSREnvelope()
       if duration != None:
@@ -21,8 +25,7 @@ class NoteGenerator(Generator):
       gen = t * envelope
       return gen
 
-
-class ToneGenerator(Generator):
+class Tone(Generator):
    def __init__(self, pitch, overtones=[(1,1,0)], detune=0):
       self.freq = pitch_to_frequency(pitch + detune/100.)
       self.overtones = filter(lambda x: x[0] * self.freq < kSamplingRate/2, overtones)

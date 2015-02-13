@@ -23,6 +23,10 @@ class Audio:
 
       self._generators = PriorityQueue()
       self.gain = 0.5
+
+   def schedule_sequence(self, seq, time):
+      for (t, gen) in seq.get_pairs():
+         self._generators.put((time+t, gen))
       
    def schedule_generator(self, gen, time):
       self._generators.put((time, gen))

@@ -8,10 +8,10 @@ class Generator(object):
       self._previous_buffer = None
 
    def __add__(self, other):
-      return SumGenerator([self, other])
+      return Sum([self, other])
 
    def __mul__(self, other):
-      return ProductGenerator([self, other])
+      return Product([self, other])
 
    def reset(self):
       self._frame = 0
@@ -32,7 +32,7 @@ class Generator(object):
       self._previous_buffer = signal
       return signal, continue_flag
 
-class ProductGenerator(Generator):
+class Product(Generator):
    def __init__(self, generators):
       self.generators = generators
       Generator.__init__(self)
@@ -56,7 +56,7 @@ class ProductGenerator(Generator):
 
       return signal, continue_flag
 
-class SumGenerator(Generator):
+class Sum(Generator):
    def __init__(self, generators):
       self.generators = generators
       Generator.__init__(self)
@@ -80,7 +80,7 @@ class SumGenerator(Generator):
 
       return signal, continue_flag
 
-class FMapGenerator(Generator):
+class FMap(Generator):
    def __init__(self, generator, function):
       self.generator = generator
       self.function = function
@@ -96,5 +96,18 @@ class FMapGenerator(Generator):
       signal, continue_flag = self.generator.generate(frame_count)
       return self.function(signal), continue_flag
 
+class DC(Generator):
+   def __init__(self, value):
+      self.value = value
+      Generator.__init__(self)
+
+   def length(self):
+      return float('inf')
+
+   def release(self):
+      pass
+
+   def get_buffer(self, frame_count):
+      return np.ones(frame_count, dtype=np.float32) * self.value, True
 
    
