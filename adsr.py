@@ -27,13 +27,13 @@ class ADSREnvelope(Generator):
       if self.release_frame != float('inf'):
          return
 
-      self.release_frame = self._frame
+      self.release_frame = self.frame
 
    def set_release_frame(self, frame):
       self.release_frame = frame
 
-   def generate(self, frame_count):
-      domain = np.arange(self._frame, self._frame + frame_count, dtype= np.float32)
+   def get_buffer(self, frame_count):
+      domain = np.arange(self.frame, self.frame + frame_count, dtype= np.float32)
 
       conditions = [
          domain < self.attack_time,
@@ -59,8 +59,7 @@ class ADSREnvelope(Generator):
       ]
       signal *= np.piecewise(domain, conditions, functions)
 
-      self._frame = self._frame + frame_count
-      continue_flag = self.length() > self._frame
+      continue_flag = self.length() > self.frame
 
       return signal, continue_flag
 

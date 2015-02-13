@@ -1,12 +1,13 @@
 import numpy as np
 
+from datetime import datetime, timedelta
+
 from audio import Audio
 from config import kSamplingRate
 from core import BaseWidget, run
 from note import ToneGenerator, NoteGenerator
 from adsr import ADSREnvelope
 from dsp import LowPassDSP
-from generator import FMapGenerator
 
 SQUARE_AMPLITUDES = [ (i, 1./float(i), 0) for i in xrange(1,20) if i%2==1]
 SINE_AMPLITUDES = [(1, 1.0, 0.0)]
@@ -28,14 +29,14 @@ class MainWidget(BaseWidget) :
              ToneGenerator(fundamental-24, [ (i, 1./float(i), 0) for i in xrange(1,14) if i%2==1], 0)
 
       gen = envelope * tone
-      return FMapGenerator(gen, LowPassDSP(100))
+      return LowPassDSP(gen, 100)
 
    def on_key_down(self, keycode, modifiers):
       # Your code here. You can change this whole function as you wish.
       print 'key-down', keycode, modifiers
       gen = False
       if keycode[1] == 'q':
-         gen = FMapGenerator(NoteGenerator(59, SQUARE_AMPLITUDES, 0), LowPassDSP(100))
+         gen = LowPassDSP(NoteGenerator(59, SQUARE_AMPLITUDES, 0), 50)
       elif keycode[1] == 'w':
          gen = NoteGenerator(60, SQUARE_AMPLITUDES, 0)
       elif keycode[1] == 'e':
@@ -87,7 +88,7 @@ class MainWidget(BaseWidget) :
 
       if gen:
          self.registered_notes[keycode[0]] = gen
-         self.audio.add_generator(gen)
+         self.audio.schedule_generator(gen, datetime.now())
 
    def on_key_up(self, keycode):
       # Your code here. You can change this whole function as you wish.

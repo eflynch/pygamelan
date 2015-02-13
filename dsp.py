@@ -1,11 +1,16 @@
 import numpy as np
 
 from config import kSamplingRate
+from generator import Generator
 
 
-def LowPassDSP(cutoff):
-    def dsp(buf):
-        L = 50
+class LowPassDSP(Generator):
+    def __init__(self, generator, cutoff):
+        self.generator = generator
+        self.h = self._get_impulse_response(cutoff, L=100)
+        Generator.__init__(self)
+
+    def _get_impulse_response(self, cutoff, L):
         omega_cut = float(cutoff) * 2.0 * np.pi / float(kSamplingRate)
         # [radians/sample] = [cycles/sec] * [radians/cycle] * [sec/sample]
 
@@ -13,20 +18,46 @@ def LowPassDSP(cutoff):
         l_range[L] = 1.0 # to avoid divide by zero error
         h = np.sin(omega_cut * l_range) / ( np.pi * l_range)
         h[L] = omega_cut / np.pi
-        filtered = np.convolve(buf, h)[:len(buf)] / sum(h)
-        return filtered
-    return dsp
+        return h
+
+    def length(self):
+        return self.generator.length()
+
+    def release(self):
+        return self.generator.release()
+
+    def get_buffer(self, frame_count):
+        previous_buffer = self.generator.previous_buffer
+        signal, continue_flag = self.generator.generate(frame_count)
+
+        with_previous = np.concatenate((previous_buffer, signal))
+
+        output = np.convolve(with_previous, self.h)
+
+        end_frame = len(output) - len(self.h) + 1
+
+        start_frame = end_frame - len(signal)
+
+        trimmed = output[start_frame : end_frame]
+
+        return trimmed, continue_flag
+
 
 if __name__ == "__main__":
+
+    from note import ToneGenerator
     import matplotlib.pyplot as plt
-    f = LowPassDSP(100)
 
-    signal = np.sin(200*(2.0*np.pi/kSamplingRate)*np.arange(0,25600, dtype=np.float32))
-    signal += np.sin(5*(2.0*np.pi/kSamplingRate)*np.arange(0,25600, dtype=np.float32))
-    signal *= 0.5
+    SQUARE_AMPLITUDES = [ (i, 1./float(i), 0) for i in xrange(1,20) if i%2==1]
+    tone = ToneGenerator(44, SQUARE_AMPLITUDES)
+    tone1 = ToneGenerator(44, SQUARE_AMPLITUDES)
+
+    low_pass = LowPassDSP(tone, 100)
+    low_pass.generate(512)
+    low_pass.generate(512)
+    low_pass.generate(512)
 
     plt.figure()
-    plt.plot(signal)
-    plt.figure()
-    plt.plot(f(signal))
+    # plt.plot(np.concatenate((tone1.generate(512)[0], tone1.previous_buffer)))
+    # plt.plot(np.concatenate((low_pass.generate(512)[0], low_pass.generate(512)[0], low_pass.generate(512)[0])))
     plt.show()

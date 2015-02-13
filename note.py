@@ -23,13 +23,14 @@ class NoteGenerator(Generator):
 
 
 class ToneGenerator(Generator):
-   def __init__(self, pitch, overtones, detune):
+   def __init__(self, pitch, overtones=[(1,1,0)], detune=0):
       self.freq = pitch_to_frequency(pitch + detune/100.)
       self.overtones = filter(lambda x: x[0] * self.freq < kSamplingRate/2, overtones)
       self.norm = sum(x[1] for x in self.overtones)
 
       self._factor = self.freq * 2.0 * np.pi / kSamplingRate
-      self._frame = 0
+
+      Generator.__init__(self)
 
    def length(self):
       return float('inf')
@@ -37,18 +38,13 @@ class ToneGenerator(Generator):
    def release(self):
       pass
 
-   def generate(self, frame_count):
-      continue_flag = True
-      domain = np.arange(self._frame, self._frame + frame_count)
-
-      self._frame = self._frame + frame_count
+   def get_buffer(self, frame_count):
+      domain = np.arange(self.frame, self.frame + frame_count)
 
       signal = np.zeros(frame_count, dtype=np.float32)
       for order, amp, phase in self.overtones:
          signal += amp * np.sin(order * self._factor * domain + phase, dtype = np.float32)
       signal *= 1./self.norm
 
-      if self._frame >= self.length():
-         continue_flag = False
-
+      continue_flag = self.frame + frame_count < self.length()
       return signal, continue_flag

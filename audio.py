@@ -1,4 +1,5 @@
-from Queue import Queue
+from Queue import PriorityQueue
+from datetime import datetime
 
 import pyaudio
 import numpy as np
@@ -20,12 +21,14 @@ class Audio:
                                     stream_callback = self._callback)
       register_terminate_func(self.close)
 
-      self._generators = Queue()
+      self._generators = PriorityQueue()
       self.gain = 0.5
       
+   def schedule_generator(self, gen, time):
+      self._generators.put((time, gen))
 
    def add_generator(self, gen):
-      self._generators.put(gen)
+      self._generators.put((datetime.now(), gen))
 
    def set_gain(self, gain):
       self.gain = np.clip(gain, 0, 1)
@@ -37,14 +40,18 @@ class Audio:
       output = np.zeros( frame_count, dtype = np.float32)
       not_done = []
       while not self._generators.empty():
-         gen = self._generators.get()
+         time, gen = self._generators.get()
+         if time > datetime.now():
+            not_done.append((time, gen))
+            break
+
          signal, continue_flag = gen.generate(frame_count)
          output += signal
          if continue_flag:
-            not_done.append(gen)
+            not_done.append((time, gen))
 
-      for gen in not_done:
-         self._generators.put(gen)
+      for time, gen in not_done:
+         self._generators.put((time, gen))
 
       output *= self.get_gain()
       
