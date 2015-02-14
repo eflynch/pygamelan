@@ -1,0 +1,5 @@
+cffi==0.8.6
+-e git+git@github.com:marcecj/faust_python@5b44d7657de721ac9a99bd44c4fae1ab4e1b185d#egg=FAUSTPy-master
+numpy==1.9.1
+pycparser==2.10
+pygame==1.9.2a0

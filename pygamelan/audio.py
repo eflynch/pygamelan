@@ -22,7 +22,7 @@ class Audio:
       register_terminate_func(self.close)
 
       self._generators = PriorityQueue()
-      self.gain = 0.5
+      self.gain = 0.1
 
    def schedule_sequence(self, seq, time):
       for (t, gen) in seq.get_pairs():

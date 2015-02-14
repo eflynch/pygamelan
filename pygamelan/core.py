@@ -1,5 +1,12 @@
-#core.py
-# Author: Eran Egozy
+#####################################################################
+#
+# core.py
+#
+# Copyright (c) 2015, Eran Egozy
+#
+# Released under the MIT License (http://opensource.org/licenses/MIT)
+#
+#####################################################################
 
 import kivy
 from kivy.app import App

@@ -42,6 +42,61 @@ class LowPassDSP(Generator):
 
         return trimmed, continue_flag
 
+class Clip(Generator):
+    def __init__(self, generator, low=-1, high=1):
+        self.generator = generator
+        self.low = low
+        self.high = high
+        Generator.__init__(self)
+
+    def length(self):
+        return self.generator.length()
+
+    def release(self):
+        return self.generator.release()
+
+    def get_buffer(self, frame_count):
+        signal, continue_flag = self.generator.generate(frame_count)
+
+        signal = np.clip(signal, self.low, self.high)
+        return signal, continue_flag
+
+class Abs(Generator):
+    def __init__(self, generator):
+        self.generator = generator
+        Generator.__init__(self)
+
+    def length(self):
+        return self.generator.length()
+
+    def release(self):
+        return self.generator.release()
+
+    def get_buffer(self, frame_count):
+        signal, continue_flag = self.generator.generate(frame_count)
+        return np.abs(signal), continue_flag
+
+class Compressor(Generator):
+    def __init__(self, generator, threshold, ratio):
+        self.generator = generator
+        self.threshold = threshold
+        self.ratio = ratio
+        Generator.__init__(self)
+
+    def length(self):
+        return self.generator.length()
+
+    def release(self):
+        return self.generator.release()
+
+    def get_buffer(self, frame_count):
+        signal, continue_flag = self.generator.generate(frame_count)
+        no_compression = abs(signal) <= self.threshold
+        compression = abs(signal) > self.threshold
+        signal[compression] = self.threshold + (self.ratio *(signal[compression] - self.threshold))
+        return signal, continue_flag
+
+
 
 if __name__ == "__main__":
 

@@ -110,4 +110,22 @@ class DC(Generator):
    def get_buffer(self, frame_count):
       return np.ones(frame_count, dtype=np.float32) * self.value, True
 
+class Sine(Generator):
+   def __init__(self, freq, phase, amp=1.0):
+      self.freq = freq
+      self.amp = amp
+      self.phase = phase
+      Generator.__init__(self)
+
+   def length(self):
+      return float('inf')
+
+   def release(self):
+      pass
+
+   def get_buffer(self, frame_count):
+      factor = self.freq * 2.0 * np.pi / kSamplingRate
+      domain = np.arange(self.frame, self.frame + frame_count)
+      return self.amp * np.sin(factor * domain + self.phase, dtype=np.float32), True
+
    

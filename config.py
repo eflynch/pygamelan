@@ -1,1 +1,0 @@
-kSamplingRate = 44100
