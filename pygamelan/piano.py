@@ -3,6 +3,8 @@ from threading import Thread
 from time import sleep
 
 import numpy as np
+
+#comment out if pygame.midi not installed
 import pygame.midi as midi
 
 from audio import Audio
@@ -25,6 +27,8 @@ class MainWidget(BaseWidget) :
       self.quant = timedelta(seconds=4)
 
       self._track_times = [datetime.now()]
+
+      # Comment out if pygame.midi not installed.
       self.start_midi()
 
 
