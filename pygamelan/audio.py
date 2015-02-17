@@ -4,15 +4,40 @@ from datetime import datetime
 import pyaudio
 import numpy as np
 
-from config import kSamplingRate
+from config import kSamplingRate, kNumChannels
 from core import register_terminate_func
+
+
+def rechannel(buf, in_channels, out_channels):
+   if in_channels > 2 or out_channels > 2:
+      raise NotImplemented()
+
+   if in_channels == out_channels:
+      return buf
+
+   num_frames = len(buf)/in_channels
+   output = np.zeros(num_frames*out_channels, dtype=np.float32)
+   if in_channels < out_channels:
+      in_channel = 0
+      for out_channel in xrange(out_channels):
+         output[out_channel::out_channels] += buf[in_channel::in_channels]
+         in_channel = (in_channel + 1) % in_channels
+   elif out_channels > in_channels:
+      out_channel = 0
+      for in_channel in xrange(out_channels):
+         output[out_channel::out_channels] += buf[in_channel::in_channels]
+         out_channel = (out_channel + 1) % out_channels
+
+   return output
+
+
 
 class Audio:
    def __init__(self):
       self.audio = pyaudio.PyAudio()
       dev_idx = self._find_best_output()
       self.stream = self.audio.open(format = pyaudio.paFloat32,
-                                    channels = 1,
+                                    channels = kNumChannels,
                                     frames_per_buffer = 512,
                                     rate = kSamplingRate,
                                     output = True,
@@ -41,7 +66,7 @@ class Audio:
       return self.gain
 
    def _callback(self, in_data, frame_count, time_info, status):
-      output = np.zeros( frame_count, dtype = np.float32)
+      output = np.zeros( frame_count * kNumChannels, dtype = np.float32)
       not_done = []
       while not self._generators.empty():
          time, gen = self._generators.get()
@@ -50,7 +75,7 @@ class Audio:
             break
 
          signal, continue_flag = gen.generate(frame_count)
-         output += signal
+         output += rechannel(signal, gen.num_channels, kNumChannels)
          if continue_flag:
             not_done.append((time, gen))
 

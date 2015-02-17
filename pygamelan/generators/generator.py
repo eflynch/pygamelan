@@ -4,6 +4,7 @@ from config import kSamplingRate
 
 class Generator(object):
    def __init__(self):
+      self._num_channels = 1
       self._frame = 0
       self._previous_buffer = None
 
@@ -15,6 +16,14 @@ class Generator(object):
 
    def reset(self):
       self._frame = 0
+
+   @property
+   def num_channels(self):
+      return self._num_channels
+
+   @num_channels.setter
+   def num_channels(self, value):
+      self._num_channels = value
 
    @property
    def previous_buffer(self):
