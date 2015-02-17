@@ -1,7 +1,7 @@
-from adsr import ADSREnvelope, ADDSREnvelope
-from note import Note, Tone, FM, SINE_AMPLITUDES, SQUARE_AMPLITUDES, TRI_AMPLITUDES
-from generator import DC, Sine, Generator
-from dsp import LowPassDSP, Clip, Abs, Compressor
+from dspy.generators.adsr import ADSREnvelope, ADDSREnvelope
+from dspy.generators.note import Note, Tone, FM, SINE_AMPLITUDES, SQUARE_AMPLITUDES, TRI_AMPLITUDES
+from dspy.generators import DC, Sine, Generator
+from dspy.generators.dsp import LowPassDSP, Clip, Abs, Compressor
 
 def num_to_pitch(num, octave=4):
     pitches = [-2, 0, 1, 5, 6]

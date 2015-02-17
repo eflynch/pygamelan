@@ -3,17 +3,14 @@ from threading import Thread
 from time import sleep
 
 import numpy as np
-
-#comment out if pygame.midi not installed
 import pygame.midi as midi
+from dspy import Audio, Sequence
+import dspy.generators as gens
+from dspy.generators import SQUARE_AMPLITUDES, SINE_AMPLITUDES, SAW_AMPLITUDES, TRI_AMPLITUDES
 
-from audio import Audio
-from config import kSamplingRate
-from core import BaseWidget, run
-import generators as gens
-from generators import instruments
-from sequence import Sequence
-from generators import SQUARE_AMPLITUDES, SINE_AMPLITUDES, SAW_AMPLITUDES, TRI_AMPLITUDES
+import instruments
+from core import BaseWidget, run, register_terminate_func
+
 
 WHITE_KEYS = [i for i in xrange(127) if i%12 in [0, 2, 4, 5, 7, 9, 11]]
 
@@ -21,6 +18,7 @@ class MainWidget(BaseWidget) :
    def __init__(self):
       super(MainWidget, self).__init__()
       self.audio = Audio()
+      register_terminate_func(self.audio.close)
       self.gap = 20
       self.registered_notes = {}
 
