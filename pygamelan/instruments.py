@@ -1,8 +1,27 @@
-from dspy.generators.adsr import ADSREnvelope, ADDSREnvelope
-from dspy.generators.note import Note, Tone, FM, SINE_AMPLITUDES, SQUARE_AMPLITUDES, TRI_AMPLITUDES
-from dspy.generators import DC, Sine, Generator
-from dspy.generators.dsp import LowPassDSP, Clip, Abs, Compressor
+import numpy as np
 
+from dspy import ADSREnvelope, ExpEnvelope, ReleaseEnvelope
+from dspy import Note, Tone, FM
+from dspy import DC, Sine, Generator
+from dspy.dsp import LowPassDSP, Clip, Abs
+from dspy.lib import t2f
+from dspy.overtones import SINE_AMPLITUDES, SQUARE_AMPLITUDES, TRI_AMPLITUDES
+
+class DurationEnvelope(Generator):
+    def __init__(self, duration):
+        Generator.__init__(self)
+        self.duration = t2f(duration)
+
+    def _length(self):
+        return self.duration
+
+    def _generate(self, frame_count):
+        output = np.arange(self.frame, self.frame + frame_count,
+                           dtype=np.float32)
+        output[output >= self.duration] = 0
+        output[output < self.duration] = 1
+        return output
+  
 def num_to_pitch(num, octave=4):
     pitches = [-2, 0, 1, 5, 6]
     detunes = [0, -20, 0, -20, +20]
@@ -30,9 +49,12 @@ class SpecialGong(Generator):
     def __new__(cls, detune=0):
         d = -20
         p = 45
-        envelope = ADDSREnvelope(attack_time=500, attack_order=1.5, decay_time = 44100,
-                                decay_order=.75, sustain=0.6, decay_time_2 = 44100*10, decay_order_2=1.5, sustain_2=0.00, release_time=4410,
-                                release_order=0.75, duration=11.1)
+
+        envelope = ExpEnvelope([
+            (1.0, 500, 1.5),
+            (0.6, 1.0, 0.75),
+            (0.0, 10.0, 1.5)
+        ], initial=0.0) * DurationEnvelope(11.1)
 
         tone = Tone(p-12, [(1,0.2,0)], detune + d) + \
                Tone(p, [(1,1,0)], detune + d) * Abs(Sine(1.00, 0, 1.0)) + \
@@ -46,9 +68,11 @@ class Gong(Generator):
     def __new__(cls, detune=0):
         d = 75
         p = 47
-        envelope = ADDSREnvelope(attack_time=500, attack_order=1.5, decay_time = 44100,
-                                decay_order=.75, sustain=0.6, decay_time_2 = 44100*10, decay_order_2=1.5, sustain_2=0.00, release_time=4410,
-                                release_order=0.75, duration=11.1)
+        envelope = ExpEnvelope([
+            (1.0, 500, 1.5),
+            (0.6, 1.0, 0.75),
+            (0.0, 10.0, 1.5)
+        ], initial=0.0) * DurationEnvelope(11.1)
 
         tone = Tone(p-12, [(1,0.6,0)], detune + d) + \
                Tone(p, [(1,1,0)], detune + d) * Abs(Sine(1.67, 0, 1.0)) + \
@@ -62,9 +86,11 @@ class Pore(Generator):
     def __new__(cls, detune=0):
         d = 50
         p = 58
-        envelope = ADDSREnvelope(attack_time=500, attack_order=1.5, decay_time = 44100,
-                                decay_order=.75, sustain=0.6, decay_time_2 = 44100*10, decay_order_2=1.5, sustain_2=0.00, release_time=4410,
-                                release_order=0.75, duration=11.1)
+        envelope = ExpEnvelope([
+            (1.0, 500, 1.5),
+            (0.6, 1.0, 0.75),
+            (0.0, 10.0, 1.5)
+        ], initial=0.0) * DurationEnvelope(11.1)
 
         tone = Tone(p-12, [(1,0.2,0)], detune + d) + \
                Tone(p, [(1,1,0)], detune + d) * Abs(Sine(2.67, 0, 1.0)) + \
@@ -78,9 +104,11 @@ class Tong(Generator):
     def __new__(cls, detune=0):
         p, d = num_to_pitch(1, 5)
         p = 69
-        envelope = ADSREnvelope(attack_time=500, attack_order=1.5, decay_time = 44100*8,
-                                decay_order=5.0, sustain=0.0, release_time=4410,
-                                release_order=0.75, duration=8.1)
+
+        envelope = ExpEnvelope([
+            (1.0, 500, 1.5),
+            (0.0, 8.0, 5.0)
+        ], initial=0.0) * DurationEnvelope(8.1)
 
         tone = Tone(p-12, [(1,0.2,0)], detune + d) + \
                Tone(p, [(1,1,0)], detune + d) + \
@@ -124,7 +152,10 @@ class Chantil(Generator):
 
 class Kempli(Generator):
     def __new__(cls, pitch=48):
-        envelope = ADSREnvelope(600, 1.5, 20000, 3.0, 0.0, 4410, 1.0, 1.0)
+        envelope = ExpEnvelope([
+            (1.0, 600, 1.5),
+            (0.0, 20000, 3.0)
+        ], initial=0.0) * DurationEnvelope(1.1)
         tone1 = Tone(pitch+12, SINE_AMPLITUDES, 0)
         tone2 = Tone(pitch-12, SQUARE_AMPLITUDES, 0) * DC(0.3)
 

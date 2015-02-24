@@ -4,9 +4,8 @@ from time import sleep
 
 import numpy as np
 import pygame.midi as midi
-from dspy import Audio, Sequence
-import dspy.generators as gens
-from dspy.generators import SQUARE_AMPLITUDES, SINE_AMPLITUDES, SAW_AMPLITUDES, TRI_AMPLITUDES
+from dspy import PyAudioPlayer, Player
+import dspy as gens
 
 import instruments
 from core import BaseWidget, run, register_terminate_func
@@ -14,21 +13,25 @@ from core import BaseWidget, run, register_terminate_func
 
 WHITE_KEYS = [i for i in xrange(127) if i%12 in [0, 2, 4, 5, 7, 9, 11]]
 
+def make_sequence(gens, times):
+   return Player(zip(gens, times), channels=1, live=False)
+
 class MainWidget(BaseWidget) :
    def __init__(self):
       super(MainWidget, self).__init__()
-      self.audio = Audio()
-      register_terminate_func(self.audio.close)
+      self.audio = Player(live=True)
+      self.pyaudio = PyAudioPlayer(self.audio)
+      register_terminate_func(self.pyaudio.close)
       self.gap = 20
       self.registered_notes = {}
 
-      self.quant = timedelta(seconds=4)
+      self.quant = timedelta(seconds=2.4*4)
 
       self._track_times = [datetime.now()]
 
       # Comment out if pygame.midi not installed.
       self.start_midi()
-
+      self.pyaudio.start()
 
    def start_midi(self):
       midi.init()
@@ -51,14 +54,14 @@ class MainWidget(BaseWidget) :
             self.on_midi_event(e)
 
 
-   def schedule_on_track(self, seq, track_number):
+   def schedule_on_track(self, gen, track_number):
       while track_number >= len(self._track_times):
          self._track_times.append(self._track_times[0])
 
       while self._track_times[track_number] < datetime.now():
          self._track_times[track_number] += self.quant
 
-      self.audio.schedule_sequence(seq, self._track_times[track_number])
+      self.audio.add(seq, self._track_times[track_number])
       self._track_times[track_number] += self.quant
 
    def on_midi_event(self, midi_event):
@@ -78,7 +81,6 @@ class MainWidget(BaseWidget) :
          print 'Black Key'
          return
 
-      seq = gen = False
       identifier = 'midi_%s' % pitch
 
       if velocity == 0:
@@ -112,8 +114,7 @@ class MainWidget(BaseWidget) :
 
       if gen:
          gen *= gens.DC(velocity/127.)
-
-      self.handle_new_gen_seq(gen, seq, identifier, overwrite=True)
+         self.handle_new_gen(gen, identifier, overwrite=True)
 
    def on_midi_control(self, channel, value):
       if channel == 1:
@@ -130,7 +131,7 @@ class MainWidget(BaseWidget) :
       print value
 
    def on_midi_volume(self, value):
-      self.audio.set_gain(0.2*value/127.)
+      self.audio.gain = 0.2*value/127.
 
    def release_identifier(self, identifier):
       if identifier in self.registered_notes:
@@ -142,30 +143,26 @@ class MainWidget(BaseWidget) :
       if identifier not in self.registered_notes:
          self.registered_notes[identifier] = []
       self.registered_notes[identifier].append(gen)
-      self.audio.schedule_generator(gen, datetime.now())
+      self.audio.add(gen)
 
-   def handle_new_gen_seq(self, gen, seq, identifier, overwrite=False):
-      if seq:
-         if 'alt' in modifiers:
-            self.schedule_on_track(seq, 0)
-         elif 'ctrl' in modifiers:
-            self.schedule_on_track(seq, 1)
-         elif 'meta' in modifiers:
-            self.schedule_on_track(seq, 2)
-         else:
-            self.audio.schedule_sequence(seq, datetime.now())
+   def handle_new_gen(self, gen, identifier, overwrite=False):
+      if overwrite:
+         self.release_identifier(identifier)
+      self.register_identifier(identifier, gen)
 
-      if gen:
-         if overwrite:
-            self.release_identifier(identifier)
-         self.register_identifier(identifier, gen)
+   def handle_new_seq(self, seq, modifiers):
+      if 'alt' in modifiers:
+         self.schedule_on_track(seq, 0)
+      elif 'ctrl' in modifiers:
+         self.schedule_on_track(seq, 1)
+      elif 'meta' in modifiers:
+         self.schedule_on_track(seq, 2)
+      else:
+         self.audio.add(seq)
          
 
    def on_key_down(self, keycode, modifiers):
       # print 'key-down', keycode, modifiers
-      gen = False
-      seq = False
-
       pamade = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p']
       chantil = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
       jublag = ['a', 's', 'd', 'f', 'g']
@@ -176,6 +173,17 @@ class MainWidget(BaseWidget) :
       tong = [',']
       specialgong = ['.']
 
+      if 'shift' in modifiers:
+         seq = False
+         if keycode[1] == 'spacebar':
+            seq = make_sequence([instruments.Kempli() for i in xrange(16)], [timedelta(seconds=i) for i in [0.0, 0.6, 1.2, 1.8, 2.4, 3.0, 3.6, 4.2, 4.8, 5.4, 6.0, 6.6, 7.2, 7.8, 8.4, 9.0]])
+         elif keycode[1] == 'z':
+            seq = make_sequence([instruments.Gong(), instruments.Pore(), instruments.Tong(), instruments.Pore()], [timedelta(seconds=i) for i in [0.0, 2.4, 4.8, 7.2]])         
+         if seq:
+            self.handle_new_seq(seq, modifiers)
+            return
+
+      gen = False
       if keycode[1] in pamade:
          gen = instruments.Pamade(pamade.index(keycode[1]), self.gap)
       elif keycode[1] in chantil:
@@ -199,29 +207,37 @@ class MainWidget(BaseWidget) :
       elif keycode[1] == 'b':
          generators = [instruments.Kempli() for i in xrange(4)]
          schedule = [timedelta(seconds=i) for i in xrange(4)]
-         seq = Sequence(generators, schedule)
+         seq = make_sequence(generators, schedule)
       elif keycode[1] == 'n':
          generators = [instruments.Kempli() for i in xrange(4)]
          schedule = [timedelta(seconds=i) for i in [0, 0.25, 0.75, 1.0]]
-         seq = Sequence(generators, schedule)
+         seq = make_sequence(generators, schedule)
       elif keycode[1] == 'm':
          generators = [instruments.Pamade(p, self.gap) for p in [0, 1, 2, 3]]
          schedule = [timedelta(seconds=i) for i in [0, 0.25, 0.75, 1.0]]
-         seq = Sequence(generators, schedule)
+         seq = make_sequence(generators, schedule)
       elif keycode[1] == 'up':
-         self.audio.set_gain(self.audio.get_gain() + 0.05)
+         self.audio.gain += 0.05
       elif keycode[1] == 'down':
-         self.audio.set_gain(self.audio.get_gain() - 0.05)
+         self.audio.gain  -= 0.05
       elif keycode[0] == 61:
          self.gap += 5
       elif keycode[0] == 45:
          self.gap -= 5
 
-      self.handle_new_gen_seq(gen, seq, keycode[0])
+      if gen is not False:
+         self.handle_new_gen(gen, keycode[0])
 
    def on_key_up(self, keycode):
       # print 'key up', keycode
       self.release_identifier(keycode[0])
+
+   def on_close(self):
+      pass
+      # import matplotlib.pyplot as plt
+      # plt.plot(self.data)
+      # plt.show()
+
 
 
 run(MainWidget)
