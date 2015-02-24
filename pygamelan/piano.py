@@ -6,15 +6,15 @@ import numpy as np
 import pygame.midi as midi
 from dspy import PyAudioPlayer, Player
 import dspy as gens
+from dspy.lib import t2f
 
 import instruments
 from core import BaseWidget, run, register_terminate_func
 
-
 WHITE_KEYS = [i for i in xrange(127) if i%12 in [0, 2, 4, 5, 7, 9, 11]]
 
 def make_sequence(gens, times):
-   return Player(zip(gens, times), channels=1, live=False)
+   return Player(zip(map(t2f,times), gens), channels=1, live=False, loop=True)
 
 class MainWidget(BaseWidget) :
    def __init__(self):
@@ -27,7 +27,7 @@ class MainWidget(BaseWidget) :
 
       self.quant = timedelta(seconds=2.4*4)
 
-      self._track_times = [datetime.now()]
+      self._track_times = [timedelta(seconds=0)]
 
       # Comment out if pygame.midi not installed.
       self.start_midi()
@@ -54,15 +54,15 @@ class MainWidget(BaseWidget) :
             self.on_midi_event(e)
 
 
-   def schedule_on_track(self, gen, track_number):
+   def schedule_on_track(self, gen, track_number, quants):
       while track_number >= len(self._track_times):
          self._track_times.append(self._track_times[0])
 
-      while self._track_times[track_number] < datetime.now():
+      while t2f(self._track_times[track_number]) < self.audio.frame:
          self._track_times[track_number] += self.quant
 
-      self.audio.add(seq, self._track_times[track_number])
-      self._track_times[track_number] += self.quant
+      self.audio.add(gen, self._track_times[track_number])
+      self._track_times[track_number] += self.quant * quants
 
    def on_midi_event(self, midi_event):
       event, timestamp = midi_event
@@ -150,13 +150,13 @@ class MainWidget(BaseWidget) :
          self.release_identifier(identifier)
       self.register_identifier(identifier, gen)
 
-   def handle_new_seq(self, seq, modifiers):
+   def schedule_new_gen(self, seq, modifiers, quants=1):
       if 'alt' in modifiers:
-         self.schedule_on_track(seq, 0)
+         self.schedule_on_track(seq, 0, quants)
       elif 'ctrl' in modifiers:
-         self.schedule_on_track(seq, 1)
+         self.schedule_on_track(seq, 1, quants)
       elif 'meta' in modifiers:
-         self.schedule_on_track(seq, 2)
+         self.schedule_on_track(seq, 2, quants)
       else:
          self.audio.add(seq)
          
@@ -173,60 +173,59 @@ class MainWidget(BaseWidget) :
       tong = [',']
       specialgong = ['.']
 
-      if 'shift' in modifiers:
-         seq = False
-         if keycode[1] == 'spacebar':
-            seq = make_sequence([instruments.Kempli() for i in xrange(16)], [timedelta(seconds=i) for i in [0.0, 0.6, 1.2, 1.8, 2.4, 3.0, 3.6, 4.2, 4.8, 5.4, 6.0, 6.6, 7.2, 7.8, 8.4, 9.0]])
-         elif keycode[1] == 'z':
-            seq = make_sequence([instruments.Gong(), instruments.Pore(), instruments.Tong(), instruments.Pore()], [timedelta(seconds=i) for i in [0.0, 2.4, 4.8, 7.2]])         
-         if seq:
-            self.handle_new_seq(seq, modifiers)
-            return
-
       gen = False
-      if keycode[1] in pamade:
-         gen = instruments.Pamade(pamade.index(keycode[1]), self.gap)
-      elif keycode[1] in chantil:
-         gen = instruments.Chantil(chantil.index(keycode[1]), self.gap)
-      elif keycode[1] in jublag:
-         gen = instruments.Jublag(jublag.index(keycode[1]), self.gap)
-      elif keycode[1] in sarang:
-         gen = instruments.Sarang(sarang.index(keycode[1]), self.gap)
-      elif keycode[1] in jegog:
-         gen = instruments.Jegog(jegog.index(keycode[1]), self.gap)
-      elif keycode[1] in gong:
-         gen = instruments.Gong()
-      elif keycode[1] in pore:
-         gen = instruments.Pore()
-      elif keycode[1] in tong:
-         gen = instruments.Tong()
-      elif keycode[1] in specialgong:
-         gen = instruments.SpecialGong()
-      elif keycode[1] == 'spacebar':
-         gen = instruments.Kempli()
-      elif keycode[1] == 'b':
-         generators = [instruments.Kempli() for i in xrange(4)]
-         schedule = [timedelta(seconds=i) for i in xrange(4)]
-         seq = make_sequence(generators, schedule)
-      elif keycode[1] == 'n':
-         generators = [instruments.Kempli() for i in xrange(4)]
-         schedule = [timedelta(seconds=i) for i in [0, 0.25, 0.75, 1.0]]
-         seq = make_sequence(generators, schedule)
-      elif keycode[1] == 'm':
-         generators = [instruments.Pamade(p, self.gap) for p in [0, 1, 2, 3]]
-         schedule = [timedelta(seconds=i) for i in [0, 0.25, 0.75, 1.0]]
-         seq = make_sequence(generators, schedule)
-      elif keycode[1] == 'up':
-         self.audio.gain += 0.05
-      elif keycode[1] == 'down':
-         self.audio.gain  -= 0.05
-      elif keycode[0] == 61:
-         self.gap += 5
-      elif keycode[0] == 45:
-         self.gap -= 5
+      if 'shift' in modifiers:
+         if keycode[1] == 'spacebar':
+            gen = make_sequence([instruments.Kempli() for i in xrange(16)], [timedelta(seconds=i) for i in [0.0, 0.6, 1.2, 1.8, 2.4, 3.0, 3.6, 4.2, 4.8, 5.4, 6.0, 6.6, 7.2, 7.8, 8.4, 9.0]])
+         elif keycode[1] == 'z':
+            gen = make_sequence([instruments.Gong(), instruments.Pore(), instruments.Tong(), instruments.Pore()], [timedelta(seconds=i) for i in [0.0, 2.4, 4.8, 7.2]])
+      else:
+         if keycode[1] in pamade:
+            gen = instruments.Pamade(pamade.index(keycode[1]), self.gap)
+         elif keycode[1] in chantil:
+            gen = instruments.Chantil(chantil.index(keycode[1]), self.gap)
+         elif keycode[1] in jublag:
+            gen = instruments.Jublag(jublag.index(keycode[1]), self.gap)
+         elif keycode[1] in sarang:
+            gen = instruments.Sarang(sarang.index(keycode[1]), self.gap)
+         elif keycode[1] in jegog:
+            gen = instruments.Jegog(jegog.index(keycode[1]), self.gap)
+         elif keycode[1] in gong:
+            gen = instruments.Gong()
+         elif keycode[1] in pore:
+            gen = instruments.Pore()
+         elif keycode[1] in tong:
+            gen = instruments.Tong()
+         elif keycode[1] in specialgong:
+            gen = instruments.SpecialGong()
+         elif keycode[1] == 'spacebar':
+            gen = instruments.Kempli()
+         elif keycode[1] == 'b':
+            generators = [instruments.Kempli() for i in xrange(4)]
+            schedule = [timedelta(seconds=i) for i in xrange(4)]
+            seq = make_sequence(generators, schedule)
+         elif keycode[1] == 'n':
+            generators = [instruments.Kempli() for i in xrange(4)]
+            schedule = [timedelta(seconds=i) for i in [0, 0.25, 0.75, 1.0]]
+            seq = make_sequence(generators, schedule)
+         elif keycode[1] == 'm':
+            generators = [instruments.Pamade(p, self.gap) for p in [0, 1, 2, 3]]
+            schedule = [timedelta(seconds=i) for i in [0, 0.25, 0.75, 1.0]]
+            seq = make_sequence(generators, schedule)
+         elif keycode[1] == 'up':
+            self.audio.gain += 0.05
+         elif keycode[1] == 'down':
+            self.audio.gain  -= 0.05
+         elif keycode[0] == 61:
+            self.gap += 5
+         elif keycode[0] == 45:
+            self.gap -= 5
 
       if gen is not False:
-         self.handle_new_gen(gen, keycode[0])
+         if 'shift' in modifiers:
+            self.schedule_new_gen(gen, modifiers)
+         else:
+            self.handle_new_gen(gen, keycode[0])
 
    def on_key_up(self, keycode):
       # print 'key up', keycode
